@@ -1,0 +1,174 @@
+#include <dht11.h>
+#include <SoftwareSerial.h>
+#include <stdlib.h>
+
+dht11 DHT11;
+
+int RX_Pin = 12;//
+int TX_Pin = 11;//
+
+bool isConnected = false;
+SoftwareSerial ESP8266(RX_Pin, TX_Pin); 
+const String wifiAdi = "WİFİADI";
+const String wifiSifresi = "WİFİSİFRE";
+
+String data;
+
+float sicaklik,nem,gaz,su,topraknem;
+
+String server = "api.thingspeak.com";
+String uri = "/update?key=IVI3HFVYHAYX3RIO";
+
+#define DHT11PIN 4 // DHT11PIN olarak Dijital 4 belirliyoruz.
+
+const int prob = A0; // analog toprak değerimizin pini
+const int prob1 = A1; // analog su deperimizin pini
+
+void setup()
+{
+  Serial.begin(115200); // Seri iletiÅŸimi baÅŸlatÄ±yoruz.
+
+  baglanESP8266();
+  
+  if (!baglanWiFi()) {
+    Serial.println("Modul internete baglanamadi :(");
+    isConnected = false;
+  }
+  else {
+    Serial.println("Modul internete baglandi :)");
+    isConnected = true;
+   
+  }
+  
+}
+
+void loop()
+{
+  
+  Serial.print("\n"); 
+  int chk = DHT11.read(DHT11PIN);  
+  nem = (float)DHT11.humidity;
+  sicaklik = (float)DHT11.temperature;
+  Serial.print("nem:");
+  Serial.println(nem, DHT11PIN);  
+  Serial.print("sicaklik:");
+  Serial.println(sicaklik, DHT11PIN);
+  delay(500);
+
+  Serial.print("\n");
+  topraknem = analogRead(prob);
+  su = analogRead(prob1);
+  Serial.print("toprak nemi:");
+  Serial.println(topraknem, prob);  
+  Serial.print("su:");
+  Serial.println(su, prob1);
+
+
+data = "&field1="+String(sicaklik)+"&field2="+String(nem)+"&field3="+String(gaz)+"&field4="+String(su)+"&field5="+String(topraknem); //örnek veri
+    Serial.println(data);
+    yolla(data);
+   delay(5000);
+}
+
+void baglanESP8266()
+{
+  
+  // enable software serial
+  while (!Serial) { }
+  ESP8266.begin(115200);
+  //send reset command
+  ESP8266.println("AT+RST"); // reset ESP8266.
+  Serial.println("ESP8266 modulu resetleniyor...");
+  
+
+  while (!ESP8266) { }
+  ESP8266.println("AT");
+  delay(5000); 
+  if(ESP8266.find("OK")){
+    Serial.println("AT OK");
+    Serial.println("ESP8266 modul bulundu :)");
+  }else
+  {
+     Serial.println("ESP8266 modul bulunamadi :(");
+    return;
+  } 
+}
+
+boolean baglanWiFi()
+{
+  String cmd = "AT+CWMODE_CUR=1";
+  //Serial.println(cmd);
+  ESP8266.println(cmd);
+  delay(5000);
+
+  cmd = "AT+CWJAP_CUR=\"";
+  cmd += wifiAdi;
+  cmd += "\",\"";
+  cmd += wifiSifresi;
+  cmd += "\"";
+
+  Serial.println("Modul kablosuz aga baglaniyor...");
+
+  ESP8266.println(cmd);
+  delay(5000); //Wifiye baÄŸlantÄ± yavaÅŸsa sÃ¼re arttÄ±rÄ±labilir
+
+  Serial.println(char(ESP8266.read()));
+
+  //if(Serial1.find("OK"))  //wifiden cevap geldi mi?
+  if (ESP8266.find("OK"))
+  {
+    Serial.println("Modul kablosuz aga baglandi :)");
+    return true;
+  }
+  else
+  {
+    Serial.println("Modul kablosuz aga baglanamadi :(");
+    return false;
+  }
+}
+
+
+void yolla(String data){
+  String istek;
+  String veriler = data;
+
+   
+  istek = "GET "+uri+data+" HTTP/1.1\r\nHost: "+server+"\r\nConnection: close\r\nAccept: \r\n\r\n";
+  ESP8266.print("AT+CIPSTART=\"TCP\",\""+server+"\",80\r\n");
+  //delay(1000);
+  ESP8266.find("OK");
+  
+  Serial.println("Buluta baglanti istegi yollandi :)");
+  delay(1000);
+  ESP8266.print("AT+CIPSEND=");
+  ESP8266.find(">");
+  ESP8266.println(String(istek.length()));
+  Serial.println("Buluta HTTP istegi yollandi :)");
+  delay(1000);
+
+
+  ESP8266.print(istek);
+  ESP8266.find("SEND OK");
+  Serial.println("Veri gonderildi :)");
+  
+  
+   //BURASIDA GELEN CEVABI OKUMAK İÇİN KULLANILIYOR
+  String alinanVeri = "";
+  char k;
+  long zaman = millis();
+
+  while(alinanVeri.indexOf("CLOSED") == -1){
+    if(millis() - zaman > 3000){
+      break;
+    }
+    while(ESP8266.available())
+    {
+      k =  ESP8266.read();
+      alinanVeri+=k;
+    }
+  }
+
+  Serial.println("Gelen veriler:");
+  Serial.println(alinanVeri);
+  /**/
+}
