@@ -1,0 +1,82 @@
+#include <SoftwareSerial.h>; // TX RX software library for bluetooth
+#include <Servo.h>; // servo kütüphanesi
+
+
+//Pinlerin yerleri
+
+Servo solServo,sagServo; // servo isimleri
+int bluetoothTx = 10; // bluetooth tx to 10 pin
+int bluetoothRx = 11; // bluetooth rx to 11 pin
+SoftwareSerial bluetooth(bluetoothTx, bluetoothRx);
+int led = 2;
+int motorPin = 3;
+int havalandirma = 4;
+int hiz = 150;
+
+
+//setup kod bloğu
+
+void setup()
+{
+  pinMode(2,OUTPUT);
+  pinMode(motorPin, OUTPUT);
+  solServo.attach(9);
+  sagServo.attach(8);
+
+  solServo.write(180);
+  sagServo.write(0);
+
+  Serial.begin(9600);
+
+  bluetooth.begin(9600);
+  
+
+}
+
+
+//loop kod bloğu 
+
+
+void loop()
+{
+//Bluetooth boştaysa serial'den gelen değeri okutuyoruz
+if(bluetooth.available() > 0 )
+{
+int gelenDeger = bluetooth.read();
+
+Serial.println(gelenDeger);
+
+if(gelenDeger == 130) {
+    solServo.write(130);
+  }
+else if(gelenDeger == 190) {
+    solServo.write(180);
+  }
+else if(gelenDeger == 131) {
+  sagServo.write(50);
+}
+else if(gelenDeger == 191) {
+  sagServo.write(0);
+}
+else if(gelenDeger == 10) {
+  digitalWrite(led,1);
+}
+else if(gelenDeger == 11) {
+  digitalWrite(led,0);
+}
+else if (gelenDeger == 20)  {
+  analogWrite(motorPin, hiz);
+}
+else if (gelenDeger == 21)  {
+  analogWrite(motorPin, 0);
+}
+else if (gelenDeger == 30)  {
+  analogWrite(havalandirma, hiz);
+}
+else if (gelenDeger == 31)  {
+  analogWrite(havalandirma, 0);
+}
+
+}
+
+}
